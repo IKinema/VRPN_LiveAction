@@ -236,6 +236,28 @@ protected:
     vrpn_RedundantTransmission *d_redundancy;
 };
 
+// This is an example of a tracker server.  It stays at the
+// origina and spins around the specified axis at the
+// specified rate of rotation, reporting orientation and
+// orientation velocity at the specified
+// rate.  It was designed to help test the smoothness of
+// rendering for VR systems by providing a ground-truth
+// smoothly-rotating tracker source.
+
+class VRPN_API vrpn_Tracker_Spin : public vrpn_Tracker {
+public:
+  vrpn_Tracker_Spin(const char *name, vrpn_Connection *c,
+    vrpn_int32 sensors = 1, vrpn_float64 reportRateHz = 1.0,
+    vrpn_float64 axisX = 0, vrpn_float64 axisY = 0,
+    vrpn_float64 axisZ = 1, vrpn_float64 spinRateHz = 0.5);
+  virtual void mainloop();
+
+protected:
+  vrpn_float64 update_rate;
+  vrpn_float64 x, y, z, spin_rate_Hz;
+  struct timeval start;
+};
+
 // This is a tracker server that can be used by an application that
 // just wants to generate tracker reports but does not really have
 // a tracker device to drive.  Similar to the vrpn_Analog_Server, it
@@ -298,7 +320,7 @@ typedef struct _vrpn_TRACKERVELCB {
     struct timeval msg_time;  // Time of the report
     vrpn_int32 sensor;        // Which sensor is reporting
     vrpn_float64 vel[3];      // Velocity of the sensor
-    vrpn_float64 vel_quat[4]; // Future Orientation of the sensor
+    vrpn_float64 vel_quat[4]; // Rotation of the sensor per vel_quat_dt
     vrpn_float64 vel_quat_dt; // delta time (in secs) for vel_quat
 } vrpn_TRACKERVELCB;
 typedef void(VRPN_CALLBACK *vrpn_TRACKERVELCHANGEHANDLER)(
@@ -312,7 +334,7 @@ typedef struct _vrpn_TRACKERACCCB {
     struct timeval msg_time;  // Time of the report
     vrpn_int32 sensor;        // Which sensor is reporting
     vrpn_float64 acc[3];      // Acceleration of the sensor
-    vrpn_float64 acc_quat[4]; // ?????
+    vrpn_float64 acc_quat[4]; // Change in vel_quat of the sensor per acc_quat_dt
     vrpn_float64 acc_quat_dt; // delta time (in secs) for acc_quat
 
 } vrpn_TRACKERACCCB;
