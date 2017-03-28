@@ -14,7 +14,7 @@ namespace IKinema {
 		~Animation();
 
 		const vrpn::skeleton_desc_t& get_skeleton_description() const;
-		const vrpn::skeleton_frame_t& get_animation_frame(std::size_t) const;
+		const vrpn::transform_vector& get_animation_frame(std::size_t) const;
 
 	private:
 		void load(const std::string&);
@@ -23,7 +23,7 @@ namespace IKinema {
 
 		std::size_t m_animation_length = 0;
 		std::size_t m_animated_nodes = 0;
-		std::vector<vrpn::skeleton_frame_t> m_anim_frames;
+		std::vector<vrpn::transform_vector> m_anim_frames;
 		vrpn::skeleton_desc_t m_animation_metadata;
 	};
 

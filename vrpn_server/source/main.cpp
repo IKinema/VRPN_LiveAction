@@ -1,5 +1,6 @@
 #include "vrpn_server.hpp"
 #include "animation.hpp"
+#include "rb_animation.h"
 
 #include <memory>
 #include <iostream>
@@ -15,6 +16,8 @@ int main()
 		std::cout << "reading animation file demo.json....\n";
 		IKinema::Animation demo_anim{"demo.json"};
 
+		IKinema::rb_animation demo_rb_anim;
+
 		std::cout << "creating server on port " << server_port << " ....\n";
 		auto connection = vrpn_create_server_connection(3883);
 
@@ -22,17 +25,16 @@ int main()
 		auto tracker = std::make_unique<IKinema::vrpn::SkeletonTracker>(connection, subject_name);
 
 		// the SkeletonTracker needs to know about its skeleton before being able to stream it
-		tracker->build_metadata(demo_anim.get_skeleton_description());
+		tracker->build_metadata(demo_anim.get_skeleton_description(), demo_rb_anim.get_description());
 
 		std::cout << "streaming animation....\n";
 
 		bool should_exit = false;
 		std::thread server_thread([&]() {
-			std::size_t frame_time = 0;
 			auto wait_until = std::chrono::system_clock::now();
-			while(!should_exit) {
-				auto&& animation_frame = demo_anim.get_animation_frame(frame_time++); // read animation from somewhere
-				tracker->send_frame(animation_frame); // use the tracker to send the frame to the connection
+			for (std::size_t frame_time = 0; !should_exit; ++frame_time) {
+				// use the tracker to send the frame to the connection
+				tracker->send_frame(demo_anim.get_animation_frame(frame_time), demo_rb_anim.get_animation_frame(frame_time)); 
 				
 				// serve frames at  30 fps
 				// using sleep_until would cancel out the delay introduced by send_frame

@@ -44,7 +44,7 @@ const IKinema::vrpn::skeleton_desc_t& IKinema::Animation::get_skeleton_descripti
 	return m_animation_metadata;
 }
 
-const IKinema::vrpn::skeleton_frame_t& IKinema::Animation::get_animation_frame(std::size_t p_requested_frame) const
+const IKinema::vrpn::transform_vector& IKinema::Animation::get_animation_frame(std::size_t p_requested_frame) const
 {
 	if (m_animation_length == 0)
 		throw std::runtime_error{"animation is empty"};
@@ -69,11 +69,11 @@ void IKinema::Animation::load_metadata_from(const Json::Value& p_meta)
 
 		// read translation [X, Y, Z]
 		for (std::size_t i = 0; i < 3; ++i)
-			bone_desc.rest.translation.data[i] = rest_transform[static_cast<Json::ArrayIndex>(i)].asDouble();
+			bone_desc.rest.translation[i] = rest_transform[static_cast<Json::ArrayIndex>(i)].asDouble();
 
 		// read quaternion rotation [X, Y, Z, W]
 		for (std::size_t i = 0; i < 4; ++i)
-			bone_desc.rest.rotation.data[i] = rest_transform[static_cast<Json::ArrayIndex>(i + 3)].asDouble();
+			bone_desc.rest.rotation[i] = rest_transform[static_cast<Json::ArrayIndex>(i + 3)].asDouble();
 
 		m_animation_metadata.push_back(std::move(bone_desc));
 	}
@@ -86,7 +86,7 @@ void IKinema::Animation::load_frame_from(const Json::Value& p_anim_frame)
 	if (!p_anim_frame.isArray())
 		throw std::runtime_error{"animation must be an array"};
 
-	vrpn::skeleton_frame_t new_frame;
+	vrpn::transform_vector new_frame;
 	for (const auto& node_transform : p_anim_frame) {
 		transform_t local_transform;
 
@@ -95,11 +95,11 @@ void IKinema::Animation::load_frame_from(const Json::Value& p_anim_frame)
 
 		// read translation [X, Y, Z]
 		for (std::size_t i = 0; i < 3; ++i)
-			local_transform.translation.data[i] = node_transform[static_cast<Json::ArrayIndex>(i)].asDouble();
+			local_transform.translation[i] = node_transform[static_cast<Json::ArrayIndex>(i)].asDouble();
 
 		// read quaternion rotation [X, Y, Z, W]
 		for (std::size_t i = 0; i < 4; ++i)
-			local_transform.rotation.data[i] = node_transform[static_cast<Json::ArrayIndex>(i+3)].asDouble();
+			local_transform.rotation[i] = node_transform[static_cast<Json::ArrayIndex>(i+3)].asDouble();
 
 		new_frame.push_back(std::move(local_transform));
 	}

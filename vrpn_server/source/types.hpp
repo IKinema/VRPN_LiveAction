@@ -1,21 +1,20 @@
 #pragma once
 
-#include <vrpn_Types.h>
 #include <vector>
+#include <array>
+
+namespace FIK {
+	class Quaternion;
+}
 
 namespace IKinema {
 
-struct vector_t {
-	vrpn_float64 data[3] = {0, 0, 0}; // x, y, z
-};
-
-struct quat_t {
-	vrpn_float64 data[4] = {0, 0, 0, 1}; // x, y, z, w
-};
+typedef std::array<double, 3> vector_t;	
+typedef std::array<double, 4> quaternion_t;
 
 struct transform_t {
 	vector_t translation;
-	quat_t rotation;
+	quaternion_t rotation;
 };
 
 namespace vrpn {
@@ -28,7 +27,12 @@ struct bone_desc_t {
 };
 
 using skeleton_desc_t = std::vector<bone_desc_t>;
-using skeleton_frame_t = std::vector<transform_t>;
+using transform_vector = std::vector<transform_t>;
 
+struct rb_desc_t {
+	std::string name;
+};
+
+using rigidbodies_desc_t = std::vector<rb_desc_t>;
 }
 }

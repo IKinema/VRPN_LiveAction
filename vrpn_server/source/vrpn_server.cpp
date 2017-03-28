@@ -84,7 +84,7 @@ void SkeletonTracker::enqueue_metadata()
     }
 }
 
-void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton)
+void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton, const rigidbodies_desc_t& p_rigidbodies)
 {
 	// convert the skeleton static pose & hierarchy to JSON and store it in a string
 
@@ -100,15 +100,15 @@ void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton)
         const auto& bone_input = p_skeleton[id];
         
 		Json::Value rest_t{Json::objectValue};
-		rest_t["X"] = bone_input.rest.translation.data[0];
-		rest_t["Y"] = bone_input.rest.translation.data[1];
-		rest_t["Z"] = bone_input.rest.translation.data[2];
+		rest_t["X"] = bone_input.rest.translation[0];
+		rest_t["Y"] = bone_input.rest.translation[1];
+		rest_t["Z"] = bone_input.rest.translation[2];
 		
 		Json::Value rest_r{Json::objectValue};
-		rest_r["X"] = bone_input.rest.rotation.data[0];
-		rest_r["Y"] = bone_input.rest.rotation.data[1];
-		rest_r["Z"] = bone_input.rest.rotation.data[2];
-		rest_r["W"] = bone_input.rest.rotation.data[3];
+		rest_r["X"] = bone_input.rest.rotation[0];
+		rest_r["Y"] = bone_input.rest.rotation[1];
+		rest_r["Z"] = bone_input.rest.rotation[2];
+		rest_r["W"] = bone_input.rest.rotation[3];
 
 		Json::Value rest{Json::objectValue};
 		rest["Translation"] = std::move(rest_t);
@@ -124,6 +124,18 @@ void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton)
     Json::Value root{Json::objectValue};
     root["Bones"] = std::move(bones);
 
+
+	// rigid body extension
+	Json::Value rbs{ Json::arrayValue };
+	for (int i = 0; i < p_rigidbodies.size(); ++i) {
+		auto rb_json = Json::Value{Json::objectValue};
+		rb_json["Name"] = p_rigidbodies[i].name;
+		rb_json["ID"] = i;
+		rbs.append(rb_json);
+	}
+
+	root["RigidBodies"] = std::move(rbs);
+
     // construct JSON serializer for the most compact code possible
     Json::StreamWriterBuilder json_writer_builder;
     json_writer_builder["precision"] = 5; // set floating point precision
@@ -137,29 +149,34 @@ void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton)
 		throw std::runtime_error{"Error preparing stream metadata\n"};
 
     m_stream_metadata = out_stream.str();
+	m_stream_bone_count = p_skeleton.size();
+	m_stream_rb_count = p_rigidbodies.size();
 }
 
-void SkeletonTracker::send_frame(const skeleton_frame_t& p_frame)
+void SkeletonTracker::send_frame(const transform_vector& p_bone_frame, const transform_vector& p_rb_frame)
 {
+	assert(p_bone_frame.size() == m_stream_bone_count);
+	assert(p_rb_frame.size() == m_stream_rb_count);
+
     // prepare a time stamp
     timeval current_time;
     vrpn_gettimeofday(&current_time, nullptr);
 
     std::array<char, 200> buffer = {}; // buffer to hold the data for a single bone
 
-    auto max_id = p_frame.size();
+    auto max_id = m_stream_bone_count + m_stream_rb_count;
 	if (max_id > std::numeric_limits<decltype(d_sensor)>::max())
 		throw std::runtime_error{"too many bones in the frame"};
 
-    for (decltype(max_id) id = 0; id < max_id; ++id) {
-        const auto& bone_data = p_frame[id];
+    for (decltype(max_id) id = 0; id < m_stream_bone_count; ++id) {
+        const auto& bone_data = p_bone_frame[id];
 		buffer.fill('\0'); // clear buffer memory
 
 		// use the same bone ID as the one sent with the metadata
         d_sensor = static_cast<decltype(d_sensor)>(id);
 
-		std::copy_n(bone_data.translation.data, 3, pos);
-		std::copy_n(bone_data.rotation.data, 4, d_quat);
+		std::copy_n(std::begin(bone_data.translation), 3, pos);
+		std::copy_n(std::begin(bone_data.rotation), 4, d_quat);
 
         auto len = encode_to(buffer.data());
         if (d_connection &&
@@ -168,6 +185,24 @@ void SkeletonTracker::send_frame(const skeleton_frame_t& p_frame)
             std::cerr << "Unable to write message - dropped\n";
         }
     }
+
+	for (decltype(max_id) id = 0; id < m_stream_rb_count; ++id) {
+		const auto& bone_data = p_rb_frame[id];
+		buffer.fill('\0'); // clear buffer memory
+
+						   // use the same bone ID as the one sent with the metadata
+		d_sensor = static_cast<decltype(d_sensor)>(m_stream_bone_count + id);
+
+		std::copy_n(std::begin(bone_data.translation), 3, pos);
+		std::copy_n(std::begin(bone_data.rotation), 4, d_quat);
+
+		auto len = encode_to(buffer.data());
+		if (d_connection &&
+			d_connection->pack_message(len, current_time, position_m_id, d_sender_id, buffer.data(),
+				vrpn_CONNECTION_LOW_LATENCY)) {
+			std::cerr << "Unable to write message - dropped\n";
+		}
+	}
 
 	// send the data to the network layer (also receives incoming messages)
     mainloop();
