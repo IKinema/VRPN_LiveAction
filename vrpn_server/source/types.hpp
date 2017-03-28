@@ -24,6 +24,7 @@ struct bone_desc_t {
 	int parent_id = -1;
 	std::string name;
 	transform_t rest;
+	double figure_scale = 1.;
 };
 
 using skeleton_desc_t = std::vector<bone_desc_t>;
