@@ -112,7 +112,7 @@ void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton, const ri
 
 		Json::Value rest{Json::objectValue};
 		rest["Translation"] = std::move(rest_t);
-		rest["Rotation"] = std::move(rest_t);
+		rest["Rotation"] = std::move(rest_r);
 
 		auto& bone_output = bones[id];
 		bone_output["Name"] = bone_input.name;
