@@ -87,17 +87,10 @@ void SkeletonTracker::enqueue_metadata()
 void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton, const rigidbodies_desc_t& p_rigidbodies)
 {
 	// convert the skeleton static pose & hierarchy to JSON and store it in a string
-
-	Json::Value bones{Json::arrayValue};
 	assert(std::numeric_limits<Json::ArrayIndex>::max() > p_skeleton.size() && "too many bones for our JSON library");
-	bones.resize(static_cast<Json::ArrayIndex>(p_skeleton.size()));
-	auto max_id = bones.size();
-
-	assert(max_id > 0 && "we need at least one bone");
-	assert(p_skeleton.size() == bones.size() && "bones didn't init right");
-
-	for (decltype(max_id) id = 0; id < max_id; ++id) {
-		const auto& bone_input = p_skeleton[id];
+	Json::Value bones{Json::arrayValue};
+	for (int i = 0; i < p_skeleton.size(); ++i) {
+		const auto& bone_input = p_skeleton[i];
 		
 		Json::Value rest_t{Json::objectValue};
 		rest_t["X"] = bone_input.rest.translation[0];
@@ -114,35 +107,37 @@ void SkeletonTracker::build_metadata(const skeleton_desc_t& p_skeleton, const ri
 		rest["Translation"] = std::move(rest_t);
 		rest["Rotation"] = std::move(rest_r);
 
-		auto& bone_output = bones[id];
-		bone_output["Name"] = bone_input.name;
-		bone_output["ID"] = bone_input.id;
-		bone_output["PID"] = bone_input.parent_id;
-		bone_output["Rest"] = std::move(rest);
+		Json::Value bone_json{Json::objectValue};
+		bone_json["Name"] = bone_input.name;
+		bone_json["ID"] = bone_input.id;
+		bone_json["PID"] = bone_input.parent_id;
+		bone_json["Rest"] = std::move(rest);
 
 		// only add figure scale to root segments
 		if (bone_input.parent_id == -1)
-			bone_output["FigScale"] = bone_input.figure_scale;
+			bone_json["FigScale"] = bone_input.figure_scale;
+
+		bones.append(bone_json);
 	}
+
+	const int rb_id_offset = bones.size();
 	
-	Json::Value root{Json::objectValue};
-	root["Bones"] = std::move(bones);
-
-
 	// rigid body extension
-	Json::Value rbs{ Json::arrayValue };
+	Json::Value rbs{Json::arrayValue};
 	for (int i = 0; i < p_rigidbodies.size(); ++i) {
 		auto rb_json = Json::Value{Json::objectValue};
 		rb_json["Name"] = p_rigidbodies[i].name;
-		rb_json["ID"] = i;
+		rb_json["ID"] = rb_id_offset + i;
 		rbs.append(rb_json);
 	}
 
+	Json::Value root{ Json::objectValue };
+	root["Bones"] = std::move(bones);
 	root["RigidBodies"] = std::move(rbs);
 
 	// construct JSON serializer for the most compact code possible
 	Json::StreamWriterBuilder json_writer_builder;
-	json_writer_builder["precision"] = 5; // set floating point precision
+	json_writer_builder["precision"] = 4; // set floating point precision
 	json_writer_builder["indentation"] = ""; // minimize use of empty spaces 
 	json_writer_builder["commentStyle"] = "None"; // same as above
 	auto json_writer = json_writer_builder.newStreamWriter();
